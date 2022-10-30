@@ -218,18 +218,149 @@ using std::cin, std::cout, std::cerr, std::endl, std::string, std::vector, std::
 
 
 
-// 1-indexed
-struct Input;
-using InputPtr = std::shared_ptr<Input>;
-struct Input {
+constexpr int T = 100;
+constexpr int N = 10;
+constexpr int di[] = { 0, -1, 0, 1 };
+constexpr int dj[] = { 1, 0, -1, 0 };
+const string d2c = "RFLB";
+char c2d[256];
 
-    Input(std::istream& in) {
+void init() {
+    c2d['R'] = 0;
+    c2d['F'] = 1;
+    c2d['L'] = 2;
+    c2d['B'] = 3;
+}
 
+struct State {
+
+    int fs[T] = {};
+    int den = 0;
+    int ps[T] = {};
+    int board[N][N] = {};
+    int t = 0;
+
+    State() {}
+
+    void init(std::istream& in) {
+        in >> fs;
+        int ctr[4] = {};
+        for (int f : fs) ctr[f]++;
+        den = ctr[1] * ctr[1] + ctr[2] * ctr[2] + ctr[3] * ctr[3];
+    }
+
+    void load(int p) {
+        ps[t] = p;
+        int q = 0;
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                if (!board[i][j]) {
+                    q++;
+                    if (q == p) {
+                        board[i][j] = fs[t];
+                        t++;
+                        return;
+                    }
+                }
+            }
+        }
+        assert(false);
+    }
+
+    void query(std::ostream& out, char c) {
+
+        out << c << endl;
+
+        if (c == 'L') {
+            for (int i = 0; i < N; i++) {
+                int k = 0;
+                for (int j = 0; j < N; j++) {
+                    if (board[i][j]) {
+                        board[i][k] = board[i][j];
+                        if (k != j) board[i][j] = 0;
+                        k++;
+                    }
+                }
+            }
+        }
+        else if (c == 'R') {
+            for (int i = 0; i < N; i++) {
+                int k = N - 1;
+                for (int j = N - 1; j >= 0; j--) {
+                    if (board[i][j]) {
+                        board[i][k] = board[i][j];
+                        if (k != j) board[i][j] = 0;
+                        k--;
+                    }
+                }
+            }
+        }
+        else if (c == 'F') {
+            for (int j = 0; j < N; j++) {
+                int k = 0;
+                for (int i = 0; i < N; i++) {
+                    if (board[i][j]) {
+                        board[k][j] = board[i][j];
+                        if (k != i) board[i][j] = 0;
+                        k++;
+                    }
+                }
+            }
+        }
+        else {
+            for (int j = 0; j < N; j++) {
+                int k = N - 1;
+                for (int i = N - 1; i >= 0; i--) {
+                    if (board[i][j]) {
+                        board[k][j] = board[i][j];
+                        if (k != i) board[i][j] = 0;
+                        k--;
+                    }
+                }
+            }
+        }
+    }
+
+    int compute_score() {
+        int s2 = 0;
+        bool used[N][N] = {};
+        for (int si = 0; si < N; si++) {
+            for (int sj = 0; sj < N; sj++) {
+                if (!board[si][sj] || used[si][sj]) continue;
+                int s = 0, v = board[si][sj];
+                std::queue<pii> qu;
+                qu.emplace(si, sj);
+                used[si][sj] = true;
+                s++;
+                while (!qu.empty()) {
+                    auto [i, j] = qu.front(); qu.pop();
+                    for (int d = 0; d < 4; d++) {
+                        int ni = i + di[d], nj = j + dj[d];
+                        if (ni < 0 || ni >= N || nj < 0 || nj >= N || used[ni][nj] || board[ni][nj] != v) continue;
+                        qu.emplace(ni, nj);
+                        used[ni][nj] = true;
+                        s++;
+                    }
+                }
+                s2 += s * s;
+            }
+        }
+        return (int)round(1e6 * s2 / den);
     }
 
 };
 
-
+int solve(std::istream& in, std::ostream& out) {
+    State state;
+    state.init(in);
+    for (int t = 0; t < T; t++) {
+        int p;
+        in >> p;
+        state.load(p);
+        state.query(out, 'F');
+    }
+    return state.compute_score();
+}
 
 #ifdef _MSC_VER
 // マルチテストケース実行
@@ -252,19 +383,21 @@ void batch_test(int seed_begin = 0, int num_seed = 100, int step = 1) {
             std::ofstream ofs(format("tools_win/out/%04d.txt", seed));
             std::ostream& out = ofs;
 
-            //auto input = std::make_shared<Input>(in);
-            //auto res = solve(input);
-            //{
-            //    mtx.lock();
-            //    out << res;
-            //    scores[seed] = res.score;
-            //    cerr << format("seed=%d, score=%d, outer_loop=%d, elapsed_ms=%f\n", seed, scores[seed], res.outer_loop, res.elapsed_ms);
-            //    mtx.unlock();
-            //}
+            int score = solve(in, out);
+
+            ifs.close();
+            ofs.close();
+
+            {
+                mtx.lock();
+                scores[seed] = score;
+                cerr << format("seed=%d, score=%d\n", seed, scores[seed]);
+                mtx.unlock();
+            }
         });
     }
 
-    //dump(std::accumulate(scores.begin(), scores.end(), 0));
+    dump(std::accumulate(scores.begin(), scores.end(), 0) * 2);
 }
 #endif
 
@@ -286,11 +419,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     std::ostream& out = cout;
 #endif
 
-#if 0
-    batch_test();
+    init();
+
+#if 1
+    solve(in, out);
 #else
-    auto input = std::make_shared<Input>(in);
-    // TODO
+    batch_test();
 #endif
 
     return 0;
