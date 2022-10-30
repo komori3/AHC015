@@ -220,6 +220,8 @@ using std::cin, std::cout, std::cerr, std::endl, std::string, std::vector, std::
 
 constexpr int T = 100;
 constexpr int N = 10;
+using Board = int[N][N];
+
 constexpr int di[] = { 0, -1, 0, 1 };
 constexpr int dj[] = { 1, 0, -1, 0 };
 const string d2c = "RFLB";
@@ -237,7 +239,7 @@ struct State {
     int fs[T] = {};
     int den = 0;
     int ps[T] = {};
-    int board[N][N] = {};
+    Board board = {};
     int t = 0;
 
     State() {}
@@ -267,10 +269,7 @@ struct State {
         assert(false);
     }
 
-    void query(std::ostream& out, char c) {
-
-        out << c << endl;
-
+    void apply_move(Board& board, char c) const {
         if (c == 'L') {
             for (int i = 0; i < N; i++) {
                 int k = 0;
@@ -321,7 +320,26 @@ struct State {
         }
     }
 
-    int compute_score() {
+    void query(std::ostream& out, char c) {
+        out << c << endl;
+        apply_move(board, c);
+    }
+
+    void query_greedy(std::ostream& out) {
+        int best_score = -1;
+        char best_dir = ' ';
+        for (char c : d2c) {
+            Board cboard;
+            std::memcpy(cboard, board, sizeof(int) * N * N);
+            apply_move(cboard, c);
+            if (chmax(best_score, compute_score(cboard))) {
+                best_dir = c;
+            }
+        }
+        query(out, best_dir);
+    }
+
+    int compute_score(const Board& board) const {
         int s2 = 0;
         bool used[N][N] = {};
         for (int si = 0; si < N; si++) {
@@ -357,9 +375,9 @@ int solve(std::istream& in, std::ostream& out) {
         int p;
         in >> p;
         state.load(p);
-        state.query(out, 'F');
+        state.query_greedy(out);
     }
-    return state.compute_score();
+    return state.compute_score(state.board);
 }
 
 #ifdef _MSC_VER
@@ -422,7 +440,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     init();
 
 #if 1
-    solve(in, out);
+    int score = solve(in, out);
+    dump(score);
 #else
     batch_test();
 #endif
