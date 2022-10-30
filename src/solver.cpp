@@ -441,7 +441,7 @@ int solve(std::istream& in, std::ostream& out) {
         int p;
         in >> p;
         state.load(p);
-        if (t != T - 1) state.query_simulate(out, rnd, 10, 19);
+        if (t != T - 1) state.query_simulate(out, rnd, 15, 19);
         else state.query(out, 'F');
     }
     return state.compute_score(state.board);
