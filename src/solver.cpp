@@ -353,9 +353,11 @@ struct State {
 
     int simulate(Xorshift& rnd, const string& ops) const {
         State cstate(*this);
+        bool first = true;
         for (char c : ops) {
-            cstate.load_random(rnd);
+            if (!first) cstate.load_random(rnd);
             cstate.apply_move(cstate.board, c);
+            first = false;
             if (cstate.t == T) break;
         }
         return compute_score(cstate.board);
@@ -386,7 +388,7 @@ struct State {
             }
         }
         query(out, d2c[best_dir]);
-        dump(t, loop, compute_score(board));
+        //dump(t, loop, compute_score(board));
     }
 
     int compute_score(const Board& board) const {
@@ -427,7 +429,7 @@ int solve(std::istream& in, std::ostream& out) {
         int p;
         in >> p;
         state.load(p);
-        state.query_simulate(out, rnd, 10, 180);
+        state.query_simulate(out, rnd, 10, 18);
     }
     return state.compute_score(state.board);
 }
