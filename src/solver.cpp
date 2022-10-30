@@ -364,13 +364,15 @@ struct State {
         Timer timer;
         double start_time = timer.elapsed_ms(), end_time = start_time + duration;
 
-        int dir_ctr[4] = {};
-        int dir_sum[4] = {};
+        size_t dir_ctr[4] = {};
+        size_t dir_sum[4] = {};
 
         string ops(len, ' ');
         int loop = 0;
         while (timer.elapsed_ms() < end_time) {
-            for (int i = 0; i < len; i++) ops[i] = d2c[rnd.next_int(4)];
+            for (int i = 0; i < len; i++) {
+                ops[i] = d2c[rnd.next_int(4)];
+            }
             int dir = c2d[ops[0]];
             dir_ctr[dir]++;
             dir_sum[dir] += simulate(rnd, ops);
@@ -389,22 +391,35 @@ struct State {
     }
 
     int compute_score(const Board& board) const {
+
+        class FastQueue {
+            int front, back;
+            int v[128];
+        public:
+            FastQueue() : front(0), back(0) {}
+            inline bool empty() { return front == back; }
+            inline void push(int x) { v[front++] = x; }
+            inline int pop() { return v[back++]; }
+            inline void reset() { front = back = 0; }
+            inline int size() { return front - back; }
+        } fqu;
+
         int s2 = 0;
         bool used[N][N] = {};
         for (int si = 0; si < N; si++) {
             for (int sj = 0; sj < N; sj++) {
                 if (!board[si][sj] || used[si][sj]) continue;
                 int s = 0, v = board[si][sj];
-                std::queue<pii> qu;
-                qu.emplace(si, sj);
+                fqu.push((si << 8) | sj);
                 used[si][sj] = true;
                 s++;
-                while (!qu.empty()) {
-                    auto [i, j] = qu.front(); qu.pop();
+                while (!fqu.empty()) {
+                    int ij = fqu.pop();
+                    int i = ij >> 8, j = ij & 0xFF;
                     for (int d = 0; d < 4; d++) {
                         int ni = i + di[d], nj = j + dj[d];
                         if (ni < 0 || ni >= N || nj < 0 || nj >= N || used[ni][nj] || board[ni][nj] != v) continue;
-                        qu.emplace(ni, nj);
+                        fqu.push((ni << 8) | nj);
                         used[ni][nj] = true;
                         s++;
                     }
@@ -426,7 +441,7 @@ int solve(std::istream& in, std::ostream& out) {
         int p;
         in >> p;
         state.load(p);
-        if (t != T - 1) state.query_simulate(out, rnd, 10, 18);
+        if (t != T - 1) state.query_simulate(out, rnd, 10, 19);
         else state.query(out, 'F');
     }
     return state.compute_score(state.board);
