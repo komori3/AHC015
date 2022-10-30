@@ -238,7 +238,6 @@ struct State {
 
     int fs[T] = {};
     int den = 0;
-    int ps[T] = {};
     Board board = {};
     int t = 0;
 
@@ -252,7 +251,6 @@ struct State {
     }
 
     void load(int p) {
-        ps[t] = p;
         int q = 0;
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
@@ -267,6 +265,20 @@ struct State {
             }
         }
         assert(false);
+    }
+
+    void load_random(Xorshift& rnd) {
+        vector<int> perm(T);
+        std::iota(perm.begin(), perm.end(), 0);
+        shuffle_vector(perm, rnd);
+        for (int p : perm) {
+            int i = p / N, j = p % N;
+            if (!board[i][j]) {
+                board[i][j] = fs[t];
+                t++;
+                return;
+            }
+        }
     }
 
     void apply_move(Board& board, char c) const {
@@ -339,6 +351,44 @@ struct State {
         query(out, best_dir);
     }
 
+    int simulate(Xorshift& rnd, const string& ops) const {
+        State cstate(*this);
+        for (char c : ops) {
+            cstate.load_random(rnd);
+            cstate.apply_move(cstate.board, c);
+            if (cstate.t == T) break;
+        }
+        return compute_score(cstate.board);
+    }
+
+    void query_simulate(std::ostream& out, Xorshift& rnd, int len, double duration) {
+        Timer timer;
+        double start_time = timer.elapsed_ms(), end_time = start_time + duration;
+
+        int dir_ctr[4] = {};
+        int dir_sum[4] = {};
+
+        string ops(len, ' ');
+        int loop = 0;
+        while (timer.elapsed_ms() < end_time) {
+            for (int i = 0; i < len; i++) ops[i] = d2c[rnd.next_int(4)];
+            int dir = c2d[ops[0]];
+            dir_ctr[dir]++;
+            dir_sum[dir] += simulate(rnd, ops);
+            loop++;
+        }
+        
+        int best_dir = -1;
+        double best_avg = -1;
+        for (int d = 0; d < 4; d++) {
+            if (chmax(best_avg, (double)dir_sum[d] / dir_ctr[d])) {
+                best_dir = d;
+            }
+        }
+        query(out, d2c[best_dir]);
+        dump(t, loop, compute_score(board));
+    }
+
     int compute_score(const Board& board) const {
         int s2 = 0;
         bool used[N][N] = {};
@@ -369,13 +419,15 @@ struct State {
 };
 
 int solve(std::istream& in, std::ostream& out) {
+    Xorshift rnd;
+
     State state;
     state.init(in);
     for (int t = 0; t < T; t++) {
         int p;
         in >> p;
         state.load(p);
-        state.query_greedy(out);
+        state.query_simulate(out, rnd, 10, 180);
     }
     return state.compute_score(state.board);
 }
